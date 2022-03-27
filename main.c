@@ -1,34 +1,14 @@
-/*#include <btAudio.h>
-
-// Sets the name of the audio device
-btAudio audio;
-
-void setup() {
-  Serial.begin(115200);
-
-  // Sets the name of the audio device
-  audio = btAudio("ESP32_Speaker");
-
-  audio.begin();
-
-  Serial.println("The device started, now you can pair it with bluetooth!");
-}
-
-void loop() {
-  delay(100);
-}
-*/
-
 #include "esp_bt_main.h"
 #include "esp_bt_device.h"
 #include "esp_gap_bt_api.h"
 #include "esp_a2dp_api.h"
 
+#include <EEPROM.h>
 
 // the audio DAC and amp configuration.
 #include "driver/i2s.h"
 
-// globals
+#define EEPROM_LAST_CONN_ADDR_OFFSET 1
 
 // the callback(processes bluetooth data).
 // this is the most important function.
@@ -66,6 +46,18 @@ void bt_data_cb(const uint8_t *data, uint32_t len) {
   }*/
 }
 
+/*void bt_event_cb(esp_a2d_cb_event_t evt, esp_a2d_cb_param_t *param) {
+  if (evt == ESP_A2D_CONNECTION_STATE_EVT && param->conn_stat.state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
+    // store the connection address
+    EEPROM.write(0, 1);
+
+    for (int i = 0; i < ESP_BD_ADDR_LEN; ++i)
+    {
+       EEPROM.write(EEPROM_LAST_CONN_ADDR_OFFSET + i, (uint8_t) param->conn_stat.remote_bda[i]);
+    }
+  }
+}*/
+
 void setup() {
   static const uint16_t BITRATE = 44100;
 
@@ -73,12 +65,12 @@ void setup() {
   static const i2s_config_t i2s_config = {
     .mode = static_cast<i2s_mode_t>(I2S_MODE_MASTER | I2S_MODE_TX),
     .sample_rate = BITRATE,
-    .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT, // I2S_BITS_PER_SAMPLE_16BIT,
+    .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
     .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
     .communication_format = static_cast<i2s_comm_format_t>(I2S_COMM_FORMAT_STAND_I2S | I2S_COMM_FORMAT_I2S_MSB),
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1, // default interrupt priority
-    .dma_buf_count = 8,
-    .dma_buf_len = 1024, // == dma_frame_num = channel_format (alias for num_channels) * bits_per_sample = bits
+    .dma_buf_count = 64,
+    .dma_buf_len = 256, // == dma_frame_num = channel_format (alias for num_channels) * bits_per_sample = bits
     .use_apll = true,
     .tx_desc_auto_clear = false
     // .fixed_mclk = -1
@@ -110,7 +102,7 @@ void setup() {
   // i2s_set_clk(I2S_NUM_0, 44100, I2S_BITS_PER_SAMPLE_16BIT, I2S_CHANNEL_STEREO);
   // i2s_set_sample_rates(I2S_NUM_0, 44100);
 
-  err = i2s_set_clk(I2S_NUM_0, 44100, I2S_BITS_PER_SAMPLE_16BIT, I2S_CHANNEL_STEREO);
+  err = i2s_set_clk(I2S_NUM_0, BITRATE, I2S_BITS_PER_SAMPLE_16BIT, I2S_CHANNEL_STEREO);
 
   if (err != ESP_OK) {
     Serial.printf("Failed setting i2s clk: %d\n", err);
@@ -141,7 +133,26 @@ void setup() {
 
   // initialize A2DP sink and set the data callback(A2DP is bluetooth audio)
   esp_a2d_sink_register_data_callback(bt_data_cb);
+  /*esp_a2d_register_callback(bt_event_cb);
+
   esp_a2d_sink_init();
+
+  esp_bd_addr_t lastConnectionAddr;
+
+  uint8_t wasConnected = EEPROM.read(0);
+
+  if (wasConnected) {
+    for (int i = 0; i < ESP_BD_ADDR_LEN; ++i)
+    {
+      lastConnectionAddr[i] = EEPROM.read(EEPROM_LAST_CONN_ADDR_OFFSET + i);
+    }
+
+    err = esp_a2d_sink_connect(lastConnectionAddr);
+
+    if (err != ESP_OK) {
+      Serial.printf("Failed connecting to last connection: %d\n", err);
+    }
+  }*/
 
   // set discoverable and connectable mode, wait to be connected
   esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
