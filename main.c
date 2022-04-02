@@ -60,15 +60,6 @@ void bt_data_cb(const uint8_t *data, uint32_t len) {
   }
 }*/
 
-void bt_evt_cb(esp_gap_ble_cb_event_t eventType, esp_ble_gap_cb_param_t *p_param) {
-  Serial.printf("Caught BLE event %d\n", (int) eventType);
-  
-  // switch (eventType) {
-  //  case BT_APP_EVT_STACK_UP:
-      
-  // }
-}
-
 void setup() {
   Serial.begin(115200);
 
@@ -80,17 +71,17 @@ void setup() {
         if (esp_bt_controller_init(&bt_cfg) != ESP_OK) {
           Serial.printf("Initializing BT controller failed (1)\n");
         }
-        
+
         while (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_IDLE);
     }
-    
+
     if (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_INITED) {
         if (esp_bt_controller_enable(ESP_BT_MODE_BTDM)) {
             Serial.printf("Enabling BT controller failed (2)\n");
             return;
         }
     }
-    
+
     if (esp_bt_controller_get_status() != ESP_BT_CONTROLLER_STATUS_ENABLED){
       Serial.printf("Getting a grip of BT controller failed (3)\n");
       return;
@@ -113,17 +104,17 @@ void setup() {
 
   // setup BT device descriptor
   esp_bt_cod_t cod;
-  
+
   esp_bt_gap_get_cod(&cod);
   cod.minor |= 6; // headphones
   cod.major |= ESP_BT_COD_MAJOR_DEV_AV ;
   cod.service |= ESP_BT_COD_SRVC_RENDERING | ESP_BT_COD_SRVC_AUDIO;
-  
+
   esp_bt_gap_set_cod(cod, ESP_BT_INIT_COD);
-  
+
   // set device name
   esp_bt_dev_set_device_name("ESP32 SPEAKER");
-  
+
   // initialize i2s / adp
   // esp_a2d_register_callback(&bt_app_a2d_cb);
   // initialize A2DP sink and set the data callback(A2DP is bluetooth audio)
@@ -137,10 +128,6 @@ void setup() {
 
   // register BT event callback
   esp_ble_gap_register_callback(&bt_evt_cb);
-
-  // ==================================================================================================
-  // set up bluetooth classic via bluedroid
-  // btStart();
 
   static const uint16_t BITRATE = 44100;
 
