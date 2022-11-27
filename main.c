@@ -12,8 +12,6 @@
 // the audio DAC and amp configuration.
 #include "driver/i2s.h"
 
-// ----- new code ------
-
 #define APP_SIG_WORK_DISPATCH (0x01)
 
 enum
@@ -35,7 +33,7 @@ static const i2s_config_t i2s_config = {
     .dma_buf_len = 512, // == dma_frame_num = channel_format (alias for num_channels) * bits_per_sample = bits
     .use_apll = false,
     .tx_desc_auto_clear = false // avoiding noise in case of data unavailability
-                               // .fixed_mclk = -1
+                                // .fixed_mclk = -1
 };
 
 i2s_channel_t i2s_channels = I2S_CHANNEL_STEREO;
@@ -184,10 +182,10 @@ void handle_audio_cfg(uint16_t event, void *p_param)
 
   // for now only SBC stream is supported
   ESP_LOGD(BT_AV_TAG, "configure audio player %x-%x-%x-%x\n",
-                a2d->audio_cfg.mcc.cie.sbc[0],
-                a2d->audio_cfg.mcc.cie.sbc[1],
-                a2d->audio_cfg.mcc.cie.sbc[2],
-                a2d->audio_cfg.mcc.cie.sbc[3]);
+           a2d->audio_cfg.mcc.cie.sbc[0],
+           a2d->audio_cfg.mcc.cie.sbc[1],
+           a2d->audio_cfg.mcc.cie.sbc[2],
+           a2d->audio_cfg.mcc.cie.sbc[3]);
 
   // setup sample rate and channels
   if (i2s_set_clk(i2s_port, i2s_config.sample_rate, i2s_config.bits_per_sample, i2s_channels) != ESP_OK)
@@ -309,6 +307,13 @@ void handle_connection_state(uint16_t event, void *p_param)
 
     // record current connection
     set_last_connection(a2d->conn_stat.remote_bda);
+
+    // unpause after reconnect
+    // TODO: store the last play timestamp (in audio_evt) in NVS and unpause only if the time from last play is less than, say, 10 sec
+    ESP_LOGD(BT_AV_TAG, "Trying to unpause\n");
+
+    esp_avrc_ct_send_passthrough_cmd(0, ESP_AVRC_PT_CMD_PLAY, ESP_AVRC_PT_CMD_STATE_PRESSED);
+    esp_avrc_ct_send_passthrough_cmd(0, ESP_AVRC_PT_CMD_PLAY, ESP_AVRC_PT_CMD_STATE_RELEASED);
 
     break;
   }
@@ -432,7 +437,7 @@ void app_a2d_callback(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param)
 
 void audio_data_callback(const uint8_t *data, uint32_t len)
 {
-//  ESP_LOGD(BT_AV_TAG, "%s\n", __func__);
+  //  ESP_LOGD(BT_AV_TAG, "%s\n", __func__);
 
   // put data into ringbuffer
   size_t i2s_bytes_written = 0;
@@ -484,6 +489,17 @@ void av_hdl_stack_evt(uint16_t event, void *param)
 
     /* set up device name */
     esp_bt_dev_set_device_name(bt_name);
+
+    result = esp_avrc_ct_init();
+
+    if (result == ESP_OK)
+    {
+      ESP_LOGD(BT_AV_TAG, "AVRCP controller initialized\n");
+    }
+    else
+    {
+      ESP_LOGE(BT_AV_TAG, "esp_avrc_ct_init: %d\n", result);
+    }
 
     /* initialize A2DP sink */
     if (esp_a2d_register_callback(app_a2d_callback) != ESP_OK)
